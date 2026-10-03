@@ -1,6 +1,6 @@
 --==================================================
--- CAM-LOCK-V2 FIXED
--- For your own Roblox experience
+-- CAM-LOCK-V2 MADE BY: ZAKIWYA
+-- Player Selector + Q Lock
 -- StarterPlayer > StarterPlayerScripts
 --==================================================
 
@@ -17,12 +17,11 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- SETTINGS
 --==================================================
 
-local REQUIRED_KEY = "ZAKIPOGI123"
+local REQUIRED_KEY = "zaki"
 local KEY_LINK = "https://guns.lol/zakiwya"
 
 local DEFAULTS = {
 	MAX_DISTANCE = 250,
-	FOV_RADIUS = 180,
 	LOCK_SPEED = 35,
 	TARGET_PART = "Head",
 
@@ -31,13 +30,11 @@ local DEFAULTS = {
 	AUTO_UNLOCK_FAR = true,
 	AUTO_UNLOCK_DEATH = true,
 
-	PRIORITY = "Crosshair",
 	HOLD_MODE = false,
 	ACTIVATION_KEY = Enum.KeyCode.Q,
 }
 
 local MAX_DISTANCE = DEFAULTS.MAX_DISTANCE
-local FOV_RADIUS = DEFAULTS.FOV_RADIUS
 local LOCK_SPEED = DEFAULTS.LOCK_SPEED
 local TARGET_PART = DEFAULTS.TARGET_PART
 
@@ -46,12 +43,15 @@ local LINE_OF_SIGHT = DEFAULTS.LINE_OF_SIGHT
 local AUTO_UNLOCK_FAR = DEFAULTS.AUTO_UNLOCK_FAR
 local AUTO_UNLOCK_DEATH = DEFAULTS.AUTO_UNLOCK_DEATH
 
-local PRIORITY = DEFAULTS.PRIORITY
 local HOLD_MODE = DEFAULTS.HOLD_MODE
 local ACTIVATION_KEY = DEFAULTS.ACTIVATION_KEY
 
 local aiming = false
 local lockedTarget = nil
+local selectedPlayer = nil
+
+-- Forward declaration
+local setAimLock
 
 --==================================================
 -- GUI
@@ -226,13 +226,20 @@ end)
 
 local main = Instance.new("Frame")
 main.Name = "Main"
-main.Size = UDim2.fromOffset(340, 500)
-main.Position = UDim2.new(0, 30, 0.5, -250)
+
+-- Increased height because of player selector
+main.Size = UDim2.fromOffset(340, 620)
+main.Position = UDim2.new(0, 30, 0.5, -310)
+
 main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 main.BorderSizePixel = 0
 main.Visible = false
 main.Parent = gui
 createCorner(main, 12)
+
+--==================================================
+-- TITLE
+--==================================================
 
 local title = Instance.new("TextLabel")
 title.Name = "Title"
@@ -310,7 +317,7 @@ hpLabel.TextXAlignment = Enum.TextXAlignment.Left
 hpLabel.Parent = main
 
 --==================================================
--- BUTTONS
+-- AIM TOGGLE
 --==================================================
 
 local toggle = Instance.new("TextButton")
@@ -325,29 +332,89 @@ toggle.BorderSizePixel = 0
 toggle.Parent = main
 createCorner(toggle, 8)
 
+--==================================================
+-- PLAYER SELECTOR
+--==================================================
+
+local playerSelectorTitle = Instance.new("TextLabel")
+playerSelectorTitle.Position = UDim2.fromOffset(15, 202)
+playerSelectorTitle.Size = UDim2.new(1, -30, 0, 22)
+playerSelectorTitle.BackgroundTransparency = 1
+playerSelectorTitle.Text = "SELECT PLAYER"
+playerSelectorTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerSelectorTitle.TextSize = 12
+playerSelectorTitle.Font = Enum.Font.GothamBold
+playerSelectorTitle.TextXAlignment = Enum.TextXAlignment.Left
+playerSelectorTitle.Parent = main
+
+local selectedPlayerLabel = Instance.new("TextLabel")
+selectedPlayerLabel.Position = UDim2.fromOffset(15, 225)
+selectedPlayerLabel.Size = UDim2.new(1, -30, 0, 22)
+selectedPlayerLabel.BackgroundTransparency = 1
+selectedPlayerLabel.Text = "Selected: None"
+selectedPlayerLabel.TextColor3 = Color3.fromRGB(100, 180, 255)
+selectedPlayerLabel.TextSize = 12
+selectedPlayerLabel.Font = Enum.Font.Gotham
+selectedPlayerLabel.TextXAlignment = Enum.TextXAlignment.Left
+selectedPlayerLabel.Parent = main
+
+local playerList = Instance.new("ScrollingFrame")
+playerList.Name = "PlayerList"
+playerList.Position = UDim2.fromOffset(15, 250)
+playerList.Size = UDim2.new(1, -30, 0, 120)
+playerList.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+playerList.BorderSizePixel = 0
+playerList.ScrollBarThickness = 5
+playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerList.Parent = main
+createCorner(playerList, 8)
+
+local playerLayout = Instance.new("UIListLayout")
+playerLayout.Padding = UDim.new(0, 5)
+playerLayout.SortOrder = Enum.SortOrder.Name
+playerLayout.Parent = playerList
+
+local refreshPlayers = Instance.new("TextButton")
+refreshPlayers.Position = UDim2.fromOffset(15, 378)
+refreshPlayers.Size = UDim2.new(1, -30, 0, 30)
+refreshPlayers.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+refreshPlayers.BorderSizePixel = 0
+refreshPlayers.Text = "REFRESH PLAYERS"
+refreshPlayers.TextColor3 = Color3.new(1, 1, 1)
+refreshPlayers.TextSize = 12
+refreshPlayers.Font = Enum.Font.GothamBold
+refreshPlayers.Parent = main
+createCorner(refreshPlayers, 7)
+
+--==================================================
+-- SETTINGS BUTTONS
+--==================================================
+
 local function makeButton(y, text)
 	local b = Instance.new("TextButton")
+
 	b.Position = UDim2.fromOffset(15, y)
 	b.Size = UDim2.new(1, -30, 0, 30)
+
 	b.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 	b.BorderSizePixel = 0
 	b.Text = text
 	b.TextColor3 = Color3.new(1, 1, 1)
 	b.TextSize = 12
 	b.Font = Enum.Font.GothamBold
+
 	b.Parent = main
 	createCorner(b, 7)
 
 	return b
 end
 
-local partButton = makeButton(200, "Target Part: Head")
-local priorityButton = makeButton(236, "Priority: Crosshair")
-local teamButton = makeButton(272, "Team Check: ON")
-local losButton = makeButton(308, "Line of Sight: OFF")
-local farButton = makeButton(344, "Auto Unlock Far: ON")
-local holdButton = makeButton(380, "Mode: TOGGLE")
-local resetButton = makeButton(416, "RESET SETTINGS")
+local partButton = makeButton(418, "Target Part: Head")
+local teamButton = makeButton(454, "Team Check: ON")
+local losButton = makeButton(490, "Line of Sight: OFF")
+local farButton = makeButton(526, "Auto Unlock Far: ON")
+local holdButton = makeButton(562, "Mode: TOGGLE")
+local resetButton = makeButton(598, "RESET SETTINGS")
 
 --==================================================
 -- TARGET PART
@@ -369,30 +436,9 @@ partButton.MouseButton1Click:Connect(function()
 	end
 
 	TARGET_PART = targetParts[partIndex]
-	partButton.Text = "Target Part: " .. TARGET_PART
-end)
 
---==================================================
--- PRIORITY
---==================================================
-
-local priorities = {
-	"Crosshair",
-	"Distance",
-	"Lowest HP",
-}
-
-local priorityIndex = 1
-
-priorityButton.MouseButton1Click:Connect(function()
-	priorityIndex += 1
-
-	if priorityIndex > #priorities then
-		priorityIndex = 1
-	end
-
-	PRIORITY = priorities[priorityIndex]
-	priorityButton.Text = "Priority: " .. PRIORITY
+	partButton.Text =
+		"Target Part: " .. TARGET_PART
 end)
 
 --==================================================
@@ -400,12 +446,15 @@ end)
 --==================================================
 
 local function updateToggleButton(button, label, enabled)
-	button.Text = label .. ": " .. (enabled and "ON" or "OFF")
+	button.Text =
+		label .. ": " .. (enabled and "ON" or "OFF")
 
 	if enabled then
-		button.BackgroundColor3 = Color3.fromRGB(45, 170, 80)
+		button.BackgroundColor3 =
+			Color3.fromRGB(45, 170, 80)
 	else
-		button.BackgroundColor3 = Color3.fromRGB(170, 45, 45)
+		button.BackgroundColor3 =
+			Color3.fromRGB(170, 45, 45)
 	end
 end
 
@@ -415,7 +464,12 @@ end
 
 teamButton.MouseButton1Click:Connect(function()
 	TEAM_CHECK = not TEAM_CHECK
-	updateToggleButton(teamButton, "Team Check", TEAM_CHECK)
+
+	updateToggleButton(
+		teamButton,
+		"Team Check",
+		TEAM_CHECK
+	)
 end)
 
 --==================================================
@@ -424,7 +478,12 @@ end)
 
 losButton.MouseButton1Click:Connect(function()
 	LINE_OF_SIGHT = not LINE_OF_SIGHT
-	updateToggleButton(losButton, "Line of Sight", LINE_OF_SIGHT)
+
+	updateToggleButton(
+		losButton,
+		"Line of Sight",
+		LINE_OF_SIGHT
+	)
 end)
 
 --==================================================
@@ -433,7 +492,12 @@ end)
 
 farButton.MouseButton1Click:Connect(function()
 	AUTO_UNLOCK_FAR = not AUTO_UNLOCK_FAR
-	updateToggleButton(farButton, "Auto Unlock Far", AUTO_UNLOCK_FAR)
+
+	updateToggleButton(
+		farButton,
+		"Auto Unlock Far",
+		AUTO_UNLOCK_FAR
+	)
 end)
 
 --==================================================
@@ -464,7 +528,7 @@ highlight.Enabled = false
 highlight.Parent = workspace
 
 --==================================================
--- TEAM CHECK
+-- TEAM CHECK FUNCTION
 --==================================================
 
 local function isEnemy(otherPlayer)
@@ -472,7 +536,9 @@ local function isEnemy(otherPlayer)
 		return true
 	end
 
-	if player.Team ~= nil and otherPlayer.Team == player.Team then
+	if player.Team ~= nil
+		and otherPlayer.Team == player.Team then
+
 		return false
 	end
 
@@ -492,7 +558,10 @@ local function hasLineOfSight(targetPart, character)
 	local direction = targetPart.Position - origin
 
 	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
+
+	params.FilterType =
+		Enum.RaycastFilterType.Exclude
+
 	params.FilterDescendantsInstances = {
 		player.Character,
 	}
@@ -519,9 +588,14 @@ local function isValidTarget(character)
 		return false
 	end
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local root = character:FindFirstChild("HumanoidRootPart")
-	local targetPart = character:FindFirstChild(TARGET_PART)
+	local humanoid =
+		character:FindFirstChildOfClass("Humanoid")
+
+	local root =
+		character:FindFirstChild("HumanoidRootPart")
+
+	local targetPart =
+		character:FindFirstChild(TARGET_PART)
 
 	if not humanoid or humanoid.Health <= 0 then
 		return false
@@ -531,91 +605,21 @@ local function isValidTarget(character)
 		return false
 	end
 
-	local distance = (
-		root.Position - camera.CFrame.Position
-	).Magnitude
+	local distance =
+		(root.Position - camera.CFrame.Position).Magnitude
 
 	if distance > MAX_DISTANCE then
 		return false
 	end
 
-	if not hasLineOfSight(targetPart, character) then
+	if not hasLineOfSight(
+		targetPart,
+		character
+	) then
 		return false
 	end
 
 	return true
-end
-
---==================================================
--- TARGET SCORE
---==================================================
-
-local function getTargetScore(character)
-	local root = character:FindFirstChild("HumanoidRootPart")
-	local targetPart = character:FindFirstChild(TARGET_PART)
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-	if not root or not targetPart or not humanoid then
-		return math.huge
-	end
-
-	local distance = (
-		root.Position - camera.CFrame.Position
-	).Magnitude
-
-	if PRIORITY == "Distance" then
-		return distance
-	end
-
-	if PRIORITY == "Lowest HP" then
-		return humanoid.Health
-	end
-
-	local center = Vector2.new(
-		camera.ViewportSize.X / 2,
-		camera.ViewportSize.Y / 2
-	)
-
-	local screenPos, visible =
-		camera:WorldToViewportPoint(targetPart.Position)
-
-	if not visible or screenPos.Z <= 0 then
-		return math.huge
-	end
-
-	return (
-		Vector2.new(screenPos.X, screenPos.Y) - center
-	).Magnitude
-end
-
---==================================================
--- FIND TARGET
---==================================================
-
-local function getClosestTarget(excludeTarget)
-	local closest = nil
-	local bestScore = math.huge
-
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer ~= player and isEnemy(otherPlayer) then
-
-			local character = otherPlayer.Character
-
-			if character
-				and character ~= excludeTarget
-				and isValidTarget(character) then
-
-				local score = getTargetScore(character)
-
-				if score < bestScore and score <= FOV_RADIUS then
-					bestScore = score
-					closest = character
-				end
-			end
-		end
-	end
-
-	return closest
 end
 
 --==================================================
@@ -634,111 +638,304 @@ local function clearLock()
 end
 
 --==================================================
--- UPDATE AIM BUTTON
+-- UPDATE AIM UI
 --==================================================
 
 local function updateAimUI()
 	if aiming then
+
 		status.Text = "Status: ON"
-		status.TextColor3 = Color3.fromRGB(80, 255, 120)
+		status.TextColor3 =
+			Color3.fromRGB(80, 255, 120)
 
 		toggle.Text = "AIM LOCK: ON"
-		toggle.BackgroundColor3 = Color3.fromRGB(45, 170, 80)
+		toggle.BackgroundColor3 =
+			Color3.fromRGB(45, 170, 80)
+
 	else
+
 		status.Text = "Status: OFF"
-		status.TextColor3 = Color3.fromRGB(255, 80, 80)
+		status.TextColor3 =
+			Color3.fromRGB(255, 80, 80)
 
 		toggle.Text = "AIM LOCK: OFF"
-		toggle.BackgroundColor3 = Color3.fromRGB(170, 45, 45)
+		toggle.BackgroundColor3 =
+			Color3.fromRGB(170, 45, 45)
 	end
 end
 
 --==================================================
--- AIM STATE
+-- PLAYER LIST
 --==================================================
 
-local function setAimLock(state)
+local function updatePlayerList()
+
+	for _, child in ipairs(playerList:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+
+		if otherPlayer ~= player then
+
+			local button =
+				Instance.new("TextButton")
+
+			button.Size =
+				UDim2.new(1, -10, 0, 30)
+
+			button.BackgroundColor3 =
+				Color3.fromRGB(45, 45, 55)
+
+			button.BorderSizePixel = 0
+
+			button.Text =
+				otherPlayer.DisplayName
+				.. " (@"
+				.. otherPlayer.Name
+				.. ")"
+
+			button.TextColor3 =
+				Color3.new(1, 1, 1)
+
+			button.TextSize = 11
+			button.Font = Enum.Font.Gotham
+
+			button.Parent = playerList
+
+			createCorner(button, 6)
+
+			button.MouseButton1Click:Connect(function()
+
+				-- Don't allow same-team player
+				if not isEnemy(otherPlayer) then
+					notify(
+						"SAME TEAM",
+						Color3.fromRGB(255, 180, 80)
+					)
+					return
+				end
+
+				selectedPlayer = otherPlayer
+
+				selectedPlayerLabel.Text =
+					"Selected: "
+					.. otherPlayer.Name
+
+				selectedPlayerLabel.TextColor3 =
+					Color3.fromRGB(80, 255, 120)
+
+				for _, otherButton
+					in ipairs(playerList:GetChildren()) do
+
+					if otherButton:IsA("TextButton") then
+						otherButton.BackgroundColor3 =
+							Color3.fromRGB(45, 45, 55)
+					end
+				end
+
+				button.BackgroundColor3 =
+					Color3.fromRGB(50, 120, 190)
+
+				notify(
+					"SELECTED: "
+					.. otherPlayer.Name,
+					Color3.fromRGB(80, 170, 255)
+				)
+			end)
+		end
+	end
+
+	task.wait()
+
+	playerList.CanvasSize =
+		UDim2.new(
+			0,
+			0,
+			0,
+			playerLayout.AbsoluteContentSize.Y + 5
+		)
+end
+
+refreshPlayers.MouseButton1Click:Connect(
+	updatePlayerList
+)
+
+--==================================================
+-- PLAYER JOIN / LEAVE
+--==================================================
+
+Players.PlayerAdded:Connect(function()
+	task.wait(0.1)
+	updatePlayerList()
+end)
+
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+
+	if selectedPlayer == leavingPlayer then
+
+		selectedPlayer = nil
+
+		selectedPlayerLabel.Text =
+			"Selected: None"
+
+		selectedPlayerLabel.TextColor3 =
+			Color3.fromRGB(100, 180, 255)
+
+		if aiming then
+			setAimLock(false)
+		end
+	end
+
+	updatePlayerList()
+end)
+
+--==================================================
+-- SET AIM LOCK
+--==================================================
+
+setAimLock = function(state)
+
 	aiming = state
 
+	-- UNLOCK
 	if not aiming then
 		clearLock()
 		updateAimUI()
 		return
 	end
 
-	lockedTarget = getClosestTarget()
+	-- NO PLAYER SELECTED
+	if not selectedPlayer then
 
-	updateAimUI()
-
-	if lockedTarget then
-		highlight.Adornee = lockedTarget
-		highlight.Enabled = true
+		aiming = false
+		updateAimUI()
 
 		notify(
-			"LOCKED: " .. lockedTarget.Name,
-			Color3.fromRGB(80, 255, 120)
-		)
-	else
-		notify(
-			"NO TARGET",
+			"SELECT A PLAYER FIRST",
 			Color3.fromRGB(255, 180, 80)
 		)
-	end
-end
 
-toggle.MouseButton1Click:Connect(function()
-	setAimLock(not aiming)
-end)
-
---==================================================
--- SWITCH TARGET
---==================================================
-
-local function switchTarget()
-	if not aiming then
 		return
 	end
 
-	local newTarget = getClosestTarget(lockedTarget)
+	-- TEAM CHECK
+	if not isEnemy(selectedPlayer) then
 
-	if newTarget then
-		lockedTarget = newTarget
-
-		highlight.Adornee = newTarget
-		highlight.Enabled = true
+		aiming = false
+		updateAimUI()
 
 		notify(
-			"TARGET: " .. newTarget.Name,
-			Color3.fromRGB(80, 170, 255)
+			"SAME TEAM",
+			Color3.fromRGB(255, 180, 80)
 		)
+
+		return
 	end
+
+	local character =
+		selectedPlayer.Character
+
+	-- INVALID CHARACTER
+	if not character
+		or not isValidTarget(character) then
+
+		aiming = false
+		updateAimUI()
+
+		notify(
+			"SELECTED PLAYER INVALID",
+			Color3.fromRGB(255, 100, 100)
+		)
+
+		return
+	end
+
+	lockedTarget = character
+
+	highlight.Adornee =
+		lockedTarget
+
+	highlight.Enabled = true
+
+	updateAimUI()
+
+	notify(
+		"LOCKED: "
+		.. selectedPlayer.Name,
+		Color3.fromRGB(80, 255, 120)
+	)
 end
+
+--==================================================
+-- AIM TOGGLE BUTTON
+--==================================================
+
+toggle.MouseButton1Click:Connect(function()
+
+	if not selectedPlayer then
+
+		notify(
+			"SELECT A PLAYER FIRST",
+			Color3.fromRGB(255, 180, 80)
+		)
+
+		return
+	end
+
+	setAimLock(not aiming)
+end)
 
 --==================================================
 -- RESET
 --==================================================
 
 resetButton.MouseButton1Click:Connect(function()
-	MAX_DISTANCE = DEFAULTS.MAX_DISTANCE
-	FOV_RADIUS = DEFAULTS.FOV_RADIUS
-	LOCK_SPEED = DEFAULTS.LOCK_SPEED
-	TARGET_PART = DEFAULTS.TARGET_PART
 
-	TEAM_CHECK = DEFAULTS.TEAM_CHECK
-	LINE_OF_SIGHT = DEFAULTS.LINE_OF_SIGHT
-	AUTO_UNLOCK_FAR = DEFAULTS.AUTO_UNLOCK_FAR
-	AUTO_UNLOCK_DEATH = DEFAULTS.AUTO_UNLOCK_DEATH
+	MAX_DISTANCE =
+		DEFAULTS.MAX_DISTANCE
 
-	PRIORITY = DEFAULTS.PRIORITY
-	HOLD_MODE = DEFAULTS.HOLD_MODE
-	ACTIVATION_KEY = DEFAULTS.ACTIVATION_KEY
+	LOCK_SPEED =
+		DEFAULTS.LOCK_SPEED
+
+	TARGET_PART =
+		DEFAULTS.TARGET_PART
+
+	TEAM_CHECK =
+		DEFAULTS.TEAM_CHECK
+
+	LINE_OF_SIGHT =
+		DEFAULTS.LINE_OF_SIGHT
+
+	AUTO_UNLOCK_FAR =
+		DEFAULTS.AUTO_UNLOCK_FAR
+
+	AUTO_UNLOCK_DEATH =
+		DEFAULTS.AUTO_UNLOCK_DEATH
+
+	HOLD_MODE =
+		DEFAULTS.HOLD_MODE
+
+	ACTIVATION_KEY =
+		DEFAULTS.ACTIVATION_KEY
+
+	selectedPlayer = nil
+
+	selectedPlayerLabel.Text =
+		"Selected: None"
+
+	selectedPlayerLabel.TextColor3 =
+		Color3.fromRGB(100, 180, 255)
 
 	partIndex = 1
-	priorityIndex = 1
 
-	partButton.Text = "Target Part: Head"
-	priorityButton.Text = "Priority: Crosshair"
-	holdButton.Text = "Mode: TOGGLE"
+	partButton.Text =
+		"Target Part: Head"
+
+	holdButton.Text =
+		"Mode: TOGGLE"
 
 	updateToggleButton(
 		teamButton,
@@ -760,6 +957,8 @@ resetButton.MouseButton1Click:Connect(function()
 
 	setAimLock(false)
 
+	updatePlayerList()
+
 	notify(
 		"SETTINGS RESET",
 		Color3.fromRGB(80, 170, 255)
@@ -779,25 +978,47 @@ RunService:BindToRenderStep(
 			return
 		end
 
+		-- CHARACTER REMOVED
 		if not lockedTarget.Parent then
 			setAimLock(false)
 			return
 		end
 
+		-- SELECTED PLAYER CHANGED CHARACTER
+		if selectedPlayer
+			and selectedPlayer.Character
+			and selectedPlayer.Character ~= lockedTarget then
+
+			lockedTarget =
+				selectedPlayer.Character
+
+			highlight.Adornee =
+				lockedTarget
+		end
+
 		local humanoid =
-			lockedTarget:FindFirstChildOfClass("Humanoid")
+			lockedTarget:FindFirstChildOfClass(
+				"Humanoid"
+			)
 
 		local root =
-			lockedTarget:FindFirstChild("HumanoidRootPart")
+			lockedTarget:FindFirstChild(
+				"HumanoidRootPart"
+			)
 
 		local targetPart =
-			lockedTarget:FindFirstChild(TARGET_PART)
+			lockedTarget:FindFirstChild(
+				TARGET_PART
+			)
 
 		-- DEATH
-		if not humanoid or humanoid.Health <= 0 then
+		if not humanoid
+			or humanoid.Health <= 0 then
+
 			clearLock()
 
 			if AUTO_UNLOCK_DEATH then
+
 				aiming = false
 				updateAimUI()
 
@@ -816,12 +1037,14 @@ RunService:BindToRenderStep(
 		end
 
 		-- DISTANCE
-		local distance = (
-			root.Position - camera.CFrame.Position
-		).Magnitude
+		local distance =
+			(root.Position - camera.CFrame.Position)
+			.Magnitude
 
 		distanceLabel.Text =
-			"Distance: " .. math.floor(distance) .. " studs"
+			"Distance: "
+			.. math.floor(distance)
+			.. " studs"
 
 		-- HP
 		hpLabel.Text =
@@ -831,7 +1054,9 @@ RunService:BindToRenderStep(
 			.. math.floor(humanoid.MaxHealth)
 
 		-- FAR
-		if AUTO_UNLOCK_FAR and distance > MAX_DISTANCE then
+		if AUTO_UNLOCK_FAR
+			and distance > MAX_DISTANCE then
+
 			setAimLock(false)
 
 			notify(
@@ -842,32 +1067,43 @@ RunService:BindToRenderStep(
 			return
 		end
 
-		-- LOS
+		-- LOS COLOR
 		if LINE_OF_SIGHT
-			and not hasLineOfSight(targetPart, lockedTarget) then
+			and not hasLineOfSight(
+				targetPart,
+				lockedTarget
+			) then
 
 			highlight.FillColor =
 				Color3.fromRGB(255, 180, 50)
+
 		else
+
 			highlight.FillColor =
 				Color3.fromRGB(255, 70, 70)
 		end
 
 		-- INFO
 		targetLabel.Text =
-			"Target: " .. lockedTarget.Name
+			"Target: "
+			.. selectedPlayer.Name
 
-		highlight.Adornee = lockedTarget
+		highlight.Adornee =
+			lockedTarget
+
 		highlight.Enabled = true
 
 		-- CAMERA
-		local desired = CFrame.lookAt(
-			camera.CFrame.Position,
-			targetPart.Position
-		)
+		local desired =
+			CFrame.lookAt(
+				camera.CFrame.Position,
+				targetPart.Position
+			)
 
 		local alpha =
-			1 - math.exp(-LOCK_SPEED * deltaTime)
+			1 - math.exp(
+				-LOCK_SPEED * deltaTime
+			)
 
 		camera.CFrame =
 			camera.CFrame:Lerp(
@@ -881,60 +1117,96 @@ RunService:BindToRenderStep(
 -- KEYBOARD
 --==================================================
 
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
-		return
-	end
+UserInputService.InputBegan:Connect(
+	function(input, processed)
 
-	if input.KeyCode == ACTIVATION_KEY then
-		if HOLD_MODE then
-			setAimLock(true)
-		else
-			setAimLock(not aiming)
+		if processed then
+			return
 		end
 
-		return
-	end
+		-- Q
+		if input.KeyCode == ACTIVATION_KEY then
 
-	if input.KeyCode == Enum.KeyCode.E then
-		switchTarget()
-		return
-	end
+			if not selectedPlayer then
 
-	if input.KeyCode == Enum.KeyCode.RightShift then
-		if main.Visible then
-			main.Visible = not main.Visible
+				notify(
+					"SELECT A PLAYER FIRST",
+					Color3.fromRGB(255, 180, 80)
+				)
+
+				return
+			end
+
+			if HOLD_MODE then
+				setAimLock(true)
+			else
+				setAimLock(not aiming)
+			end
+
+			return
+		end
+
+		-- RIGHT SHIFT
+		if input.KeyCode == Enum.KeyCode.m then
+
+			if main.Visible then
+				main.Visible =
+					not main.Visible
+			end
+
+			return
 		end
 	end
-end)
+)
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == ACTIVATION_KEY and HOLD_MODE then
-		setAimLock(false)
+--==================================================
+-- HOLD MODE RELEASE
+--==================================================
+
+UserInputService.InputEnded:Connect(
+	function(input)
+
+		if input.KeyCode == ACTIVATION_KEY
+			and HOLD_MODE then
+
+			setAimLock(false)
+		end
 	end
-end)
+)
 
 --==================================================
 -- MINIMIZE
 --==================================================
 
 minimize.MouseButton1Click:Connect(function()
+
 	minimized = not minimized
 
-	for _, child in ipairs(main:GetChildren()) do
+	for _, child in ipairs(
+		main:GetChildren()
+	) do
+
 		if child:IsA("GuiObject")
 			and child ~= title
 			and child ~= minimize then
 
-			child.Visible = not minimized
+			child.Visible =
+				not minimized
 		end
 	end
 
 	if minimized then
-		main.Size = UDim2.fromOffset(340, 55)
+
+		main.Size =
+			UDim2.fromOffset(340, 55)
+
 		minimize.Text = "+"
+
 	else
-		main.Size = UDim2.fromOffset(340, 500)
+
+		main.Size =
+			UDim2.fromOffset(340, 620)
+
 		minimize.Text = "—"
 	end
 end)
@@ -948,89 +1220,167 @@ local dragStart
 local startPosition
 
 title.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1 then
+
 		dragging = true
 		dragStart = input.Position
 		startPosition = main.Position
 	end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-	if dragging
-		and input.UserInputType == Enum.UserInputType.MouseMovement then
+UserInputService.InputChanged:Connect(
+	function(input)
 
-		local delta = input.Position - dragStart
+		if dragging
+			and input.UserInputType ==
+			Enum.UserInputType.MouseMovement then
 
-		main.Position = UDim2.new(
-			startPosition.X.Scale,
-			startPosition.X.Offset + delta.X,
-			startPosition.Y.Scale,
-			startPosition.Y.Offset + delta.Y
-		)
+			local delta =
+				input.Position - dragStart
+
+			main.Position =
+				UDim2.new(
+					startPosition.X.Scale,
+					startPosition.X.Offset
+						+ delta.X,
+
+					startPosition.Y.Scale,
+					startPosition.Y.Offset
+						+ delta.Y
+				)
+		end
 	end
-end)
+)
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
+UserInputService.InputEnded:Connect(
+	function(input)
+
+		if input.UserInputType ==
+			Enum.UserInputType.MouseButton1 then
+
+			dragging = false
+		end
 	end
-end)
+)
 
 --==================================================
 -- VERIFY KEY
 --==================================================
 
-verifyButton.MouseButton1Click:Connect(function()
-	if keyBox.Text == REQUIRED_KEY then
+verifyButton.MouseButton1Click:Connect(
+	function()
 
-		keyStatus.Text = "Key accepted!"
-		keyStatus.TextColor3 =
-			Color3.fromRGB(80, 255, 120)
+		if keyBox.Text == REQUIRED_KEY then
 
-		task.wait(0.4)
+			keyStatus.Text =
+				"Key accepted!"
 
-		keyFrame.Visible = false
-		main.Visible = true
+			keyStatus.TextColor3 =
+				Color3.fromRGB(80, 255, 120)
 
-		notify(
-			"AIM LOCK READY",
-			Color3.fromRGB(80, 255, 120)
-		)
+			task.wait(0.4)
 
-	else
-		keyStatus.Text = "Invalid key"
-		keyStatus.TextColor3 =
-			Color3.fromRGB(255, 80, 80)
+			keyFrame.Visible = false
+			main.Visible = true
+
+			notify(
+				"AIM LOCK READY",
+				Color3.fromRGB(80, 255, 120)
+			)
+
+		else
+
+			keyStatus.Text =
+				"Invalid key"
+
+			keyStatus.TextColor3 =
+				Color3.fromRGB(255, 80, 80)
+		end
 	end
-end)
+)
 
 --==================================================
 -- MOBILE
 --==================================================
 
-local mobileButton = Instance.new("TextButton")
-mobileButton.Name = "MobileLock"
-mobileButton.Size = UDim2.fromOffset(65, 65)
-mobileButton.Position = UDim2.new(1, -85, 1, -100)
-mobileButton.BackgroundColor3 = Color3.fromRGB(170, 45, 45)
-mobileButton.Text = "LOCK"
-mobileButton.TextColor3 = Color3.new(1, 1, 1)
-mobileButton.TextSize = 13
-mobileButton.Font = Enum.Font.GothamBold
-mobileButton.Visible = UserInputService.TouchEnabled
-mobileButton.Parent = gui
-createCorner(mobileButton, 999)
+local mobileButton =
+	Instance.new("TextButton")
 
-mobileButton.MouseButton1Click:Connect(function()
-	setAimLock(not aiming)
-end)
+mobileButton.Name = "MobileLock"
+
+mobileButton.Size =
+	UDim2.fromOffset(65, 65)
+
+mobileButton.Position =
+	UDim2.new(1, -85, 1, -100)
+
+mobileButton.BackgroundColor3 =
+	Color3.fromRGB(170, 45, 45)
+
+mobileButton.Text = "LOCK"
+
+mobileButton.TextColor3 =
+	Color3.new(1, 1, 1)
+
+mobileButton.TextSize = 13
+mobileButton.Font =
+	Enum.Font.GothamBold
+
+mobileButton.Visible =
+	UserInputService.TouchEnabled
+
+mobileButton.Parent = gui
+
+createCorner(
+	mobileButton,
+	999
+)
+
+mobileButton.MouseButton1Click:Connect(
+	function()
+
+		if not selectedPlayer then
+
+			notify(
+				"SELECT A PLAYER FIRST",
+				Color3.fromRGB(255, 180, 80)
+			)
+
+			return
+		end
+
+		setAimLock(not aiming)
+	end
+)
 
 --==================================================
 -- INITIAL STATE
 --==================================================
 
-updateToggleButton(teamButton, "Team Check", TEAM_CHECK)
-updateToggleButton(losButton, "Line of Sight", LINE_OF_SIGHT)
-updateToggleButton(farButton, "Auto Unlock Far", AUTO_UNLOCK_FAR)
+updateToggleButton(
+	teamButton,
+	"Team Check",
+	TEAM_CHECK
+)
 
-print("[CAM-LOCK-V2] Loaded successfully")
+updateToggleButton(
+	losButton,
+	"Line of Sight",
+	LINE_OF_SIGHT
+)
+
+updateToggleButton(
+	farButton,
+	"Auto Unlock Far",
+	AUTO_UNLOCK_FAR
+)
+
+updateAimUI()
+
+updatePlayerList()
+
+print(
+	"[CAM-LOCK-V2] Loaded successfully"
+)
